@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package twitterRoute;
+
+service TwitterService {
+  rpc createUser (CreateUserRequest) returns (CreateUserResponse) {}
+  rpc getUser (GetUserRequest) returns (GetUserResponse) {}
+  rpc followUser (FollowUserRequest) returns (FollowUserResponse) {}
+  rpc timelineUser (TimelineUserRequest) returns (TimelineUserResponse) {}
+  rpc homeUser (HomeUserRequest) returns (HomeUserResponse) {}
+  rpc createTweet (createTweetRequest) returns (createTweetResponse) {}
+  
+}
+
+message createTweetRequest {
+    int32 id = 1;
+    string content = 2;
+}
+
+message createTweetResponse {
+    string result = 1;
+  string error = 2;
+}
+
+message CreateUserResponse {
+  string result = 1;
+  string error = 2;
+}
+
+message CreateUserRequest {
+  string username = 1;
+  string password = 2;
+  string name = 3;
+}
+
+message GetUserResponse {
+    string username = 1;
+    string name = 2;
+    int32 followers = 3;
+    int32 following = 4;
+    int32 tweets = 5;
+    int32 favorites = 6;
+}
+
+message GetUserRequest {
+   int32 id = 1;
+}
+
+message FollowUserRequest {
+   int32 id = 1;
+   int32 follow = 2;
+}
+
+message FollowUserResponse {
+   string result = 1;
+   string error = 2;
+}
+
+message TimelineUserRequest  {
+   int32 id = 1;
+}
+
+message tweets {
+    string username = 1;
+    string content = 2;
+    int32 favourites = 3;
+    int32 tweet_id = 4;
+    string author_id = 5;
+}
+
+message TimelineUserResponse {
+    repeated tweets timeline = 1;
+}
+
+message HomeUserRequest  {
+   int32 id = 1;
+}
+
+message HomeUserResponse {
+    repeated tweets home = 1;
+}

@@ -1,0 +1,31 @@
+--- 
+options: 
+  docker: true
+pipelines: 
+  default: 
+    - step: 
+        caches: 
+          - node
+        name: "Build & Push Test"
+        script: 
+          - export CLOUDSDK_CORE_DISABLE_PROMPTS=1
+           # Google Cloud SDK is pinned for build reliability. Bump if the SDK complains about deprecation.
+          - SDK_VERSION=127.0.0
+          - SDK_FILENAME=google-cloud-sdk-${SDK_VERSION}-linux-x86_64.tar.gz
+          - curl -O -J https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/${SDK_FILENAME}
+          - tar -zxvf ${SDK_FILENAME} --directory ${HOME}
+          - export PATH=${PATH}:${HOME}/google-cloud-sdk/bin
+          - echo $GCR_KEY > ${HOME}/gcloud-service-key.json
+          - gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
+          - gcloud --quiet config set project mimetic-fulcrum-220515
+          - gcloud --quiet config set compute/zone asia-east1-b
+          - gcloud --quiet container clusters get-credentials standard-cluster-1
+          - IMAGE_NAME=us.gcr.io/mimetic-fulcrum-220515/twitter-backend:$BITBUCKET_COMMIT
+          - docker build -t twitter-backend .
+          - docker tag  twitter-backend $IMAGE_NAME
+          - gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://us.gcr.io
+          - docker push $IMAGE_NAME
+          - curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+          - chmod +x ./kubectl
+          - sudo mv ./kubectl /usr/local/bin/kubectl
+

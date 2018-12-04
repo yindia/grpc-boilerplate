@@ -1,0 +1,22 @@
+steps:
+- id: 'Build Twitter Image'
+  name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'us.gcr.io/$PROJECT_ID/$REPO_NAME/$BRANCH_NAME:$SHORT_SHA', '.']
+- id: 'Push Twitter Image'
+  name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'us.gcr.io/$PROJECT_ID/$REPO_NAME/$BRANCH_NAME:$SHORT_SHA']
+- id: 'Set JOB Name'
+  name: 'ubuntu'
+  args: ['bash','-c','sed -i "s,JOB_NAME,${_JOB_NAME}," k8s/cloudbuild/deployment.yml']
+- id: 'Set Image in yamls'
+  name: 'ubuntu'
+  args: ['bash','-c','sed -i "s,APP_IMAGE,us.gcr.io/$PROJECT_ID/$REPO_NAME/$BRANCH_NAME:$SHORT_SHA," k8s/cloudbuild/deployment.yml']
+- id: kubectl-apply
+  name: 'gcr.io/cloud-builders/kubectl'
+  args: ['apply', '-f', 'k8s/cloudbuild/deployment.yml']
+  env:
+  - 'CLOUDSDK_COMPUTE_ZONE=${_CLOUDSDK_COMPUTE_ZONE}'
+  - 'CLOUDSDK_CONTAINER_CLUSTER=${_CLOUDSDK_CONTAINER_CLUSTER}'
+
+
+

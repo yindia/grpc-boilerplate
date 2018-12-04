@@ -1,0 +1,80 @@
+version: 2
+jobs:
+  code_analyze:
+    docker:
+      - image: circleci/openjdk:8 
+    steps:
+      - checkout
+      - run:
+          name: analyze by SonarQube
+          command: bash ./.circleci/analyze-sonarqube.sh
+  build_and_test:
+    docker:
+      - image: circleci/node:10
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "package.json" }}
+            - v1-dependencies-
+      - run:
+          name: Install dependencies
+          command: npm install
+      - save_cache:
+          paths:
+            - node_modules
+          key: v1-dependencies-{{ checksum "package.json" }}
+      - run:
+          name: Run Test 
+          command: npm run test
+  deploy_to_staging:
+    docker:
+      - image: google/cloud-sdk
+    environment:
+      - PROJECT_NAME: "exotel-twitter"
+      - GOOGLE_PROJECT_ID: "mimetic-fulcrum-220515"
+      - GOOGLE_COMPUTE_ZONE: "asia-east1-b	"
+      - GOOGLE_CLUSTER_NAME: "standard-cluster-1"
+    steps:
+      - checkout
+      - run: 
+          name: Setup Google Cloud SDK
+          command: |
+            apt-get install -qq -y gettext
+            echo $GCLOUD_SERVICE_KEY > ${HOME}/gcloud-service-key.json
+            gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
+            gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
+            gcloud --quiet config set compute/zone ${GOOGLE_COMPUTE_ZONE}
+            gcloud --quiet container clusters get-credentials ${GOOGLE_CLUSTER_NAME}
+      - setup_remote_docker
+      - run: 
+          name: Docker build and push
+          command: |
+            docker build \
+              --build-arg COMMIT_REF=${CIRCLE_SHA1} \
+              --build-arg BUILD_DATE=`date -u +�%Y-%m-%dT%H:%M:%SZ�` \
+              -t ${PROJECT_NAME} .
+            docker tag ${PROJECT_NAME} us.gcr.io/${GOOGLE_PROJECT_ID}/${PROJECT_NAME}:${CIRCLE_SHA1}
+            gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://us.gcr.io
+            docker push us.gcr.io/${GOOGLE_PROJECT_ID}/${PROJECT_NAME}:${CIRCLE_SHA1}
+      - run: 
+          name: Deploy to Kubernetes
+          command: |
+            envsubst < ${HOME}/project/k8s/deployment-twitter.yml > ${HOME}/patched_k8s.yml
+            kubectl apply -f ${HOME}/patched_k8s.yml 
+            kubectl rollout status deployment/service1
+            kubectl rollout status deployment/front-envoy
+workflows:
+  version: 2
+  build_test_deploy:
+    jobs:
+      - build_and_test 
+      - code_analyze
+      - deploy_to_staging:
+          requires:
+            - build_and_test
+            - code_analyze
+          filters:
+            branches:
+              only: master

@@ -1,0 +1,27 @@
+version: '3.4'
+services: 
+  twitter-backend: 
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports: 
+      - "50051:8080"
+
+  twitter-client: 
+    build:
+      context: ./client/.
+      dockerfile: Dockerfile
+    depends_on: 
+      - twitter-backend
+      - front-envoy
+    environment: 
+      - "grpc_backend=127.0.0.1:8080"
+
+  front-envoy: 
+    build: 
+      context: ./envoy/.
+      dockerfile: Dockerfile
+    depends_on: 
+      - twitter-backend
+    ports: 
+      - "8080:8080"
